@@ -1,0 +1,146 @@
+================================================================================
+          CENTIO.AI - SMART EXPENSE TRACKER & PREDICTIVE FORECASTING
+                     Viva & Interview Preparation Guide
+================================================================================
+
+This document serves as your cheat sheet to go through right before your viva 
+or interview. It explains how the project works, the technology stack, and 
+the major logical systems under the hood.
+
+--------------------------------------------------------------------------------
+1. PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+Centio.ai is a premium personal finance manager. It provides a real-time 
+analytics dashboard to log income and expenses, set budget category limits, 
+download formatted PDF/Excel reports, and predict next-month expenses. 
+
+Key differentiator: Instead of relying on heavy machine learning libraries or 
+third-party cloud AI wrappers (like OpenAI/Gemini), it runs a custom-written 
+statistical solver using Ordinary Least Squares (OLS) Linear Regression for 
+predictive analysis, making it extremely lightweight and high-performance.
+
+--------------------------------------------------------------------------------
+2. THE TECHNICAL STACK
+--------------------------------------------------------------------------------
+* FRONTEND: 
+  - React.js (built on Vite) for rendering dynamic UI components.
+  - Recharts for rendering SVG-based charts (Line, Pie, Bar charts).
+  - Lucide React for visual iconography.
+  - Vanilla CSS (custom design system) to create the glassmorphism theme,
+    utilizing backdrop-filters, custom CSS variables, and layout systems.
+
+* BACKEND:
+  - FastAPI (Python) - a modern ASGI framework built for speed, native support 
+    for async/await requests, and automatic Swagger OpenAPI documentation.
+  - Uvicorn - the ASGI server used to run the FastAPI app.
+  - Pydantic - used for data validation. Incoming JSON requests are checked 
+    against Pydantic schemas before executing database transactions.
+
+* DATABASE & ORM:
+  - SQLite (Local development) / PostgreSQL (Production deployment).
+  - SQLAlchemy ORM - decouples database logic from physical SQL scripts, 
+    allowing seamless transitions between SQLite (development) and PostgreSQL.
+
+* REPORTS & UTILITIES:
+  - ReportLab - compiles binary table streams to generate statement PDFs.
+  - OpenPyXL - compiles spreadsheet formats to generate Excel sheets (.xlsx).
+
+--------------------------------------------------------------------------------
+3. ARCHITECTURE FLOW & SYSTEMS
+--------------------------------------------------------------------------------
+[ User Browser (React) ] 
+       │  (HTTPS & JWT Bearer Token)
+       ▼
+[ FastAPI App Container ]
+       │
+       ├──► [ Logging & Exception Middleware ] (Performance logging & 500 safety)
+       │
+       ├──► [ Authentication Guard ] (Extracts and validates JWT signature)
+       │
+       ├──► [ AI Regression Service ] (Runs OLS solver math)
+       │
+       └──► [ SQLAlchemy ORM ]
+                  │
+                  ▼
+          [ PostgreSQL / SQLite ] (Cascading foreign key triggers)
+
+--------------------------------------------------------------------------------
+4. MAJOR ENGINEERING LOGIC (THE "HOW IT WORKS" DEEP DIVE)
+--------------------------------------------------------------------------------
+
+A. PREDICTIVE EXPENSE FORECASTING (Ordinary Least Squares Regression)
+   - How it works: Given historical daily expense values, the backend treats 
+     the day offsets (Day 1, 2, 3, etc.) as the X-axis and the daily expense 
+     totals as the Y-axis. It fits a straight line: y = mx + c.
+   - Equations solved:
+     * Slope (m) = [ N * ∑(xy) - ∑x * ∑y ] / [ N * ∑(x²) - (∑x)² ]
+     * Intercept (c) = [ ∑y - m * ∑x ] / N
+   - Once the backend calculates the slope (m) and intercept (c) from history, 
+     it plugs in future days (X = N+1, N+2, ... N+30) to project future daily 
+     expenditures.
+   - Variance/Predictability (R-Squared): It also computes the R-Squared 
+     coefficient to tell the user the "confidence level" of the AI prediction.
+
+B. PASSWORD SECURITY & HASHING (PBKDF2 Cryptography)
+   - Plain text passwords are NEVER stored.
+   - Centio.ai uses PBKDF2 (Password-Based Key Derivation Function 2) with SHA-256.
+   - When a user signs up:
+     1. A unique, random 16-byte cryptographic salt is generated.
+     2. The password and salt are hashed together 100,000 times using SHA-256.
+     3. The database stores: <salt>$<hash>.
+   - Why it's secure: This prevents "rainbow table" attacks and dictionary attacks,
+     as attackers cannot pre-compute hashes due to the random salt and high 
+     iteration count.
+
+C. STATELESS AUTHENTICATION (JWT - JSON Web Tokens)
+   - Upon successful login, the backend signs a JWT payload (containing the 
+     user ID and email) using a secret key and returns it.
+   - The token contains an expiration timestamp (configured for 24 hours).
+   - The client browser stores this token in LocalStorage and attaches it to the 
+     "Authorization: Bearer <token>" header for every secure request.
+   - The backend validates the signature of this token statefully, preventing 
+     database lookups for session validation on every request.
+
+D. DATABASE INTEGRITY & CASCADE RULES (SQLAlchemy & SQLite triggers)
+   - Foreign key cascading is defined on the models. E.g., deleting a User 
+     automatically deletes all their Transactions and Budgets.
+   - SQLite, by default, does NOT enforce foreign keys. In backend/app/database/session.py, 
+     we listen to SQLAlchemy engine connections and run:
+     "PRAGMA foreign_keys=ON;"
+     This enforces SQL-level constraints in SQLite just like in production PostgreSQL.
+
+--------------------------------------------------------------------------------
+5. COMMON VIVA / INTERVIEW QUESTIONS & ANSWERS
+--------------------------------------------------------------------------------
+
+Q1: Why did you write your own regression math instead of importing Scikit-Learn?
+A: Importing large ML libraries like Scikit-Learn increases the backend memory footprint 
+   and deployment bundle size by hundreds of megabytes. Since Simple Linear Regression 
+   can be solved using basic statistics, writing the OLS solver in pure Python keeps 
+   the app fast, clean, lightweight, and deployment-friendly.
+
+Q2: What is the benefit of using FastAPI instead of Django or Flask?
+A: FastAPI is built on ASGI (Asynchronous Server Gateway Interface), making it much 
+   faster than standard WSGI frameworks like Flask. It natively supports Python async/await,
+   uses Pydantic for automated data validation (which blocks bad payloads before they 
+   hit endpoints), and automatically compiles OpenAPI Swagger documentation.
+
+Q3: How are CORS issues handled in your app?
+A: In backend/app/main.py, we configure CORSMiddleware. It allows local development 
+   ports (localhost:5173, etc.) and uses a regex matcher (allow_origin_regex) to support 
+   all subdomains on Vercel (*.vercel.app), while also letting us configure a custom 
+   production domain via the FRONTEND_URL environment variable.
+
+Q4: What happens if a user's JWT token is stolen?
+A: The JWT is configured with a 24-hour expiration window. Once expired, it becomes 
+   invalid. For high-security environments, one could shorten the lifespan (e.g., 15 mins) 
+   and implement refresh tokens, but a 24-hour window is the standard balance for user 
+   convenience in college projects.
+
+Q5: How did you implement budget alerts?
+A: When transaction lists are loaded or created, a backend service aggregates current 
+   spending in a category and compares it to the active budget ceiling. The backend 
+   ai/insights route uses threshold metrics to flags categories that have exceeded 
+   or are forecasted to exceed their budget limits, pushing these warnings to the 
+   frontend.
+================================================================================
