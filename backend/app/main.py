@@ -28,17 +28,22 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Set up CORS policies
-# Allow local React dev server ports and common staging URLs
+import os
+
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
 ]
 
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    origins.append(frontend_url.rstrip("/"))
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",  # Support all Vercel staging & production domains
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
