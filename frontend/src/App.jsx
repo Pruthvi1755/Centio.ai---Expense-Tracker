@@ -15,6 +15,7 @@ import Transactions from "./pages/Transactions";
 import Budgets from "./pages/Budgets";
 import Analytics from "./pages/Analytics";
 import AIInsights from "./pages/AIInsights";
+import ProjectDocs from "./pages/ProjectDocs";
 
 // Import core stylesheet layouts
 import "./styles/variables.css";
@@ -79,6 +80,8 @@ const MainAppContent = () => {
         return <Analytics />;
       case "ai":
         return <AIInsights />;
+      case "docs":
+        return <ProjectDocs />;
       case "dashboard":
       default:
         return <Dashboard setCurrentTab={setCurrentTab} />;

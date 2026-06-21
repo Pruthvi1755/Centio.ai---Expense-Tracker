@@ -1,5 +1,5 @@
 import React from "react";
-import { LogOut, Sun, Moon, LayoutDashboard, Receipt, PiggyBank, BarChart3, BrainCircuit, Wallet } from "lucide-react";
+import { LogOut, Sun, Moon, LayoutDashboard, Receipt, PiggyBank, BarChart3, BrainCircuit, Wallet, BookOpen } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const Layout = ({ children, currentTab, setCurrentTab }) => {
@@ -11,6 +11,7 @@ const Layout = ({ children, currentTab, setCurrentTab }) => {
     { id: "budgets", label: "Budgets", icon: <PiggyBank size={18} /> },
     { id: "analytics", label: "Analytics", icon: <BarChart3 size={18} /> },
     { id: "ai", label: "AI Advisor", icon: <BrainCircuit size={18} /> },
+    { id: "docs", label: "Project Docs", icon: <BookOpen size={18} /> },
   ];
 
   return (
